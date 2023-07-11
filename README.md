@@ -6,6 +6,7 @@ Credit goes to Sebastian Seeds for the initial idea of using parsed-down ROOT fi
 1. You will provide the program with a set of global cuts, along with the other useful information like run parameters and paths to input and output rootfiles and etc. within a configuration file.
 2. The program will search and find the CODA runs for the specific run paramers and finds the replayed ROOT files either in the user provided locations or in the generic locations in /work or /volatile.
 3. For each ROOT file, the program will make a copy of the "T" TTree parsed as per the input cut conditions and the other three TTres, "E", "TSLeft", and "TSsbs" are copied one to one, in a separate directory specified by the user. It is recommended to have this direcory in /volatile.
+4. Aleternative to the above step 3, there is also an option to make a single ROOT file containing parsed data for input run parameters.
 
 ## 2. What each script does:
 1. `parse_gmn_rootfiles.C`: This is the main script that does the parsing of ROOT files. User should not have to modify anything inside this file unless they are experimenting.
@@ -16,7 +17,7 @@ Credit goes to Sebastian Seeds for the initial idea of using parsed-down ROOT fi
 ## 3. Quick start guide:
 1. Inside the directory where all the above mentioned scripts exists, create the `<user given name>.cfg` configuration file, following the provided `parse_gmn_rootfiles.cfg` file, and change the input fields as required.
 2. Open the `submit-parse_gmn_rootfiles.sh` file and set the fields "SCRIPT_DIR" and "workflowname" with the user specific ones.
-3. Run the command: `$ submit-parse_gmn_rootfiles.sh <configfilename> 1` if it needs to be run on ifarm or replace 1 with any other integer to run on batch farm.
+3. Run the command: `$ submit-parse_gmn_rootfiles.sh <configfilename> <do split-wise?> <run on ifarm?>`. If split-wise file parsing is required, replace `<do split-wise?>` with 1, and if a single ROOT file needs to be created out of all the data, put any other integer. If the program needs to be run on ifarm, replace `<run on ifarm?>` with 1, and any other integer to run on batch farm.
 
 ## 4. Contact:
 For any questions or concerns, contact,

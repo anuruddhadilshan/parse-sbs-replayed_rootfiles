@@ -12,10 +12,10 @@
  
 std::vector<int> makeRunnumvec(TString target, int kin_num, int sbsfieldscale);
 std::vector<std::string> getFileNamesWithSubstring(TString input_dirpath, int runnum);
-bool makeParsedROOTfile(TString input_ROOTfile_dirpath, std::string rootfile_name, TString output_dir_path, TCut globalcut);
+bool makeAParsedROOTfile(TString input_ROOTfile_dirpath, std::string rootfile_name, TString output_dir_path, TCut globalcut);
+void makeTheParsedROOTfile(std::vector<int> runnum_vec, TString input_ROOTfile_dirpath, TString output_dir_path, TString outrootfilename, TCut globalcut);
 
-
-int parse_gmn_rootfiles(const char* configfilename)
+int parse_gmn_rootfiles(const char* configfilename, int splitwise = 1) //Enter splitwise = 1 for split-wise ROOT file parsing and any other number to make a single parsed ROOT file.
 {
 
 	auto total_time_start = std::chrono::high_resolution_clock::now();
@@ -51,29 +51,41 @@ int parse_gmn_rootfiles(const char* configfilename)
 	TString output_dir_path = configfile.return_outputdir();
 	TCut globalcut = configfile.return_globalcut();
 	
-	//// Loop over each and every run number in the runnum_vec, and copy the ROOT file names into a another vector, run_segset_names_vec. ////
- 	for (const auto& runnum : runnum_vec)
- 	{
-		std::vector<std::string> run_segset_names_vec = getFileNamesWithSubstring(input_ROOTfile_dirpath, runnum); // The vector to hold the names of ROOT files for the given runnum.
+	if ( splitwise == 1 ) //Make seperate ROOT files for each individual ROOT file.
+	{
+		std::cout << "\nMaking split-wise parsed ROOT files...\n";
+		//// Loop over each and every run number in the runnum_vec, and copy the ROOT file names into a another vector, run_segset_names_vec. ////
+	 	for (const auto& runnum : runnum_vec)
+	 	{
+			std::vector<std::string> run_segset_names_vec = getFileNamesWithSubstring(input_ROOTfile_dirpath, runnum); // The vector to hold the names of ROOT files for the given runnum.
 
-		if( run_segset_names_vec.size() == 0)
-		{
-			std::cerr << "No replayed ROOT files for run number " << runnum << " in the directory: " << input_ROOTfile_dirpath << '\n';
-			continue;
+			if( run_segset_names_vec.size() == 0)
+			{
+				std::cerr << "No replayed ROOT files for run number " << runnum << " in the directory: " << input_ROOTfile_dirpath << '\n';
+				continue;
+			}
+
+			std::cout << "*Run number: " << runnum << '\n';
+
+			//// Loop over each and every ROOT file in the run_segset_names_vec and create a parsed ROOT file for each and every ROOT file in the vector ////
+			for(const auto& rootfile_name : run_segset_names_vec)
+			{
+				//Making the parsed ROOT files.
+				bool is_success = makeAParsedROOTfile(input_ROOTfile_dirpath, rootfile_name, output_dir_path, globalcut);
+
+				if(!is_success) continue; // Skip to the next file if there is an eroor with parsing the rootfile.
+			}
+
+			std::cout << '\n';
 		}
+	
+	}
 
-		std::cout << "*Run number: " << runnum << '\n';
-
-		//// Loop over each and every ROOT file in the run_segset_names_vec and create a parsed ROOT file for each and every ROOT file in the vector ////
-		for(const auto& rootfile_name : run_segset_names_vec)
-		{
-			//Making the parsed ROOT files.
-			bool is_success = makeParsedROOTfile(input_ROOTfile_dirpath, rootfile_name, output_dir_path, globalcut);
-
-			if(!is_success) continue; // Skip to the next file if there is an eroor with parsing the rootfile.
-		}
-
-		std::cout << '\n';
+	else //Make a single parsed ROOT file for all the runs with the given run parameters.
+	{
+		std::cout << "\nMaking a single parsed ROOT file...\n";
+		TString outrootfilename = Form("parsed_gmn_SBS%i_targ%s_sbsmagscale%i.root", kin_num, target.Data(), sbsfieldscale);
+		makeTheParsedROOTfile(runnum_vec, input_ROOTfile_dirpath, output_dir_path, outrootfilename, globalcut);
 	}
 		
 
@@ -93,7 +105,7 @@ std::vector<int> makeRunnumvec(TString target, int kin_num, int sbsfieldscale)
 	std::cout << "\n--------------------------------------\n";
 	std::cout << "Building runnum vector...\n"; 
 	int nruns = lookup_parsed_runs_cnt(target, kin_num, sbsfieldscale);
-	std::cout << "Number good of runs per the input parameters: " << nruns << '\n';
+	std::cout << "Number of good runs as per the input parameters: " << nruns << '\n';
 	std::cout << "--------------------------------------\n" << '\n';
 
 
@@ -139,7 +151,7 @@ std::vector<std::string> getFileNamesWithSubstring(TString input_dirpath, int ru
     return fileNames;
 }
 
-bool makeParsedROOTfile(TString input_ROOTfile_dirpath, std::string rootfile_name, TString output_dir_path, TCut globalcut)
+bool makeAParsedROOTfile(TString input_ROOTfile_dirpath, std::string rootfile_name, TString output_dir_path, TCut globalcut)
 {
 	// Open input root file. Copy the Trees.
 	TFile* inputrootfile = new TFile(Form("%s/%s", input_ROOTfile_dirpath.Data(), rootfile_name.c_str()), "OPEN"); 
@@ -178,4 +190,36 @@ bool makeParsedROOTfile(TString input_ROOTfile_dirpath, std::string rootfile_nam
 	output_rootfile->Write();
 
 	return true;
+}
+
+void makeTheParsedROOTfile(std::vector<int> runnum_vec, TString input_ROOTfile_dirpath, TString output_dir_path, TString outrootfilename, TCut globalcut)
+{
+	TChain* C_T = new TChain("T");
+	TChain* C_E = new TChain("E");
+	TChain* C_TSLeft = new TChain("TSLeft");
+	TChain* C_TSsbs = new TChain("TSsbs");
+
+	for (const auto& runnum : runnum_vec)
+	{
+		TString in_rootfile = Form("%s/*%i*.root", input_ROOTfile_dirpath.Data(), runnum);
+		C_T->Add(in_rootfile.Data());
+		C_E->Add(in_rootfile.Data());
+		C_TSLeft->Add(in_rootfile.Data());
+		C_TSsbs->Add(in_rootfile.Data());
+	}
+
+	TFile* output_rootfile = new TFile(Form("%s/%s", output_dir_path.Data(), outrootfilename.Data()),"RECREATE");
+		
+	//Making a copy of the main "T" tree with the provided global cuts applied.
+	TTree* T; 
+	T = C_T->CopyTree(globalcut);
+	TTree* E;
+	//Cloning the other TTrees.
+	E = C_E->CloneTree();
+	TTree* TSLeft;
+	TSLeft = C_TSLeft->CloneTree();
+	TTree* TSsbs;
+	TSsbs = C_TSsbs->CloneTree();
+		
+	output_rootfile->Write();
 }
