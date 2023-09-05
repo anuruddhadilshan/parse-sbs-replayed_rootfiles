@@ -6,9 +6,10 @@
 #include <dirent.h>
 #include "TStopwatch.h"
 
-#include "/work/halla/sbs/adr/GMn_analysis/physics_analysis/ElasticEventsStudy/includes/read_parsescript_config.h"
-#include "/work/halla/sbs/adr/GMn_analysis/physics_analysis/ElasticEventsStudy/includes/beam_variables.h"
+#include "read_parsescript_config.h"
+#include "beam_variables.h"
 
+namespace fs = std::filesystem;
  
 std::vector<int> makeRunnumvec(TString target, int kin_num, int sbsfieldscale);
 std::vector<std::string> getFileNamesWithSubstring(TString input_dirpath, int runnum);
@@ -86,19 +87,17 @@ int parse_gmn_rootfiles(const char* configfilename, int splitwise = 1) //Enter s
 		std::cout << "\nMaking a single parsed ROOT file...\n";
 		TString outrootfilename = Form("parsed_gmn_SBS%i_targ%s_sbsmagscale%i.root", kin_num, target.Data(), sbsfieldscale);
 		makeTheParsedROOTfile(runnum_vec, input_ROOTfile_dirpath, output_dir_path, outrootfilename, globalcut);
-	}
-		
+	}		
 
 	auto total_time_end = std::chrono::high_resolution_clock::now();
 	auto total_time_duration = std::chrono::duration_cast<std::chrono::minutes>(total_time_end - total_time_start);
-	cout << endl << "---------------------------------------------------" << endl;
-	cout << "Finished parsing rootfiles" << endl;
-	cout << "---------------------------------------------------" << endl;
-	cout << "Total time: " << total_time_duration.count() << " minutes. " << endl;
+	std::cout << endl << "---------------------------------------------------" << endl;
+	std::cout << "Finished parsing rootfiles" << endl;
+	std::cout << "---------------------------------------------------" << endl;
+	std::cout << "Total time: " << total_time_duration.count() << " minutes. " << endl;
 			
 	return 0;
 }
-
 
 std::vector<int> makeRunnumvec(TString target, int kin_num, int sbsfieldscale)
 {
@@ -119,36 +118,68 @@ std::vector<int> makeRunnumvec(TString target, int kin_num, int sbsfieldscale)
 	return runnum_vec;
 }
 
+// std::vector<std::string> getFileNamesWithSubstring(TString input_dirpath, int runnum) // Note: 9/2/2023: This function does not seems to behave as intended anymore. Maybe it is a result of using a newer ROOT version.
+// {
+//     const char* directoryPath = input_dirpath.Data();
+//     const char* substring = std::to_string(runnum).c_str();
+    
+//     std::vector<std::string> fileNames;
+
+//     DIR* dir = opendir(directoryPath);
+//     if (dir == nullptr) 
+//     {
+//         std::cerr << "Error opening directory: " << directoryPath << std::endl;
+//         return fileNames;
+//     }
+
+//     dirent* entry;
+//     while ((entry = readdir(dir)) != nullptr) 
+//     {
+//         if (entry->d_type == DT_REG) 
+//         {  // Only consider regular files
+//             std::string fileName = entry->d_name;
+//             if (fileName.find(substring) != std::string::npos) 
+//             {
+//                 fileNames.push_back(fileName);
+//             }
+//         }
+//     }
+
+//     closedir(dir);
+
+//     return fileNames;
+// }
+
 std::vector<std::string> getFileNamesWithSubstring(TString input_dirpath, int runnum) 
 {
-    const char* directoryPath = input_dirpath.Data();
-    const char* substring = std::to_string(runnum).c_str();
+	const char* directoryPath_cst = input_dirpath.Data();
+	std::string directoryPath = directoryPath_cst;
+	const char* searchLiteral_cst = std::to_string(runnum).c_str();
+	std::string searchLiteral = searchLiteral_cst;
+	//const char* searchLiteral = "e1209019_fullreplay_13597_stream0";
 
-    std::vector<std::string> fileNames;
+    std::vector<std::string> matchingFiles;
 
-    DIR* dir = opendir(directoryPath);
-    if (dir == nullptr) 
+    try 
     {
-        std::cerr << "Error opening directory: " << directoryPath << std::endl;
-        return fileNames;
-    }
-
-    dirent* entry;
-    while ((entry = readdir(dir)) != nullptr) 
-    {
-        if (entry->d_type == DT_REG) 
-        {  // Only consider regular files
-            std::string fileName = entry->d_name;
-            if (fileName.find(substring) != std::string::npos) 
+        for (const auto& entry : fs::directory_iterator(directoryPath)) 
+        {
+            if (entry.is_regular_file()) 
             {
-                fileNames.push_back(fileName);
+                std::string filename = entry.path().filename().string();
+                if (filename.find(searchLiteral) != std::string::npos) 
+                {
+                    matchingFiles.push_back(filename);
+                }
             }
         }
     }
+    catch (const fs::filesystem_error& e)
+    {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
 
-    closedir(dir);
-
-    return fileNames;
+    return matchingFiles;
 }
 
 bool makeAParsedROOTfile(TString input_ROOTfile_dirpath, std::string rootfile_name, TString output_dir_path, TCut globalcut)
@@ -169,7 +200,7 @@ bool makeAParsedROOTfile(TString input_ROOTfile_dirpath, std::string rootfile_na
 	
 	TString outrootfilename = Form("parsed_%s", rootfile_name.c_str());
 
-	TFile* output_rootfile = new TFile(Form("%s/%s", output_dir_path.Data(), outrootfilename.Data()),"RECREATE");
+	TFile* outputrootfile = new TFile(Form("%s/%s", output_dir_path.Data(), outrootfilename.Data()),"RECREATE");
 
 	std::cout << "**Making the parsed ROOT file for file: " << rootfile_name << '\n';
 
@@ -187,7 +218,12 @@ bool makeAParsedROOTfile(TString input_ROOTfile_dirpath, std::string rootfile_na
 	TTree* T; 
 	T = in_T->CopyTree(globalcut);
 		
-	output_rootfile->Write();
+	outputrootfile->Write();
+	outputrootfile->Close();
+	delete outputrootfile;
+
+	inputrootfile->Close();
+	delete inputrootfile;
 
 	return true;
 }
@@ -208,7 +244,7 @@ void makeTheParsedROOTfile(std::vector<int> runnum_vec, TString input_ROOTfile_d
 		C_TSsbs->Add(in_rootfile.Data());
 	}
 
-	TFile* output_rootfile = new TFile(Form("%s/%s", output_dir_path.Data(), outrootfilename.Data()),"RECREATE");
+	TFile* outputrootfile = new TFile(Form("%s/%s", output_dir_path.Data(), outrootfilename.Data()),"RECREATE");
 		
 	//Making a copy of the main "T" tree with the provided global cuts applied.
 	TTree* T; 
@@ -221,5 +257,7 @@ void makeTheParsedROOTfile(std::vector<int> runnum_vec, TString input_ROOTfile_d
 	TTree* TSsbs;
 	TSsbs = C_TSsbs->CloneTree();
 		
-	output_rootfile->Write();
+	outputrootfile->Write();
+	outputrootfile->Close();
+	delete outputrootfile;
 }
