@@ -198,7 +198,7 @@ bool makeAParsedROOTfile(TString input_ROOTfile_dirpath, std::string rootfile_na
 	TTree* in_TSLeft = (TTree*)inputrootfile->Get("TSLeft");
 	TTree* in_TSsbs = (TTree*)inputrootfile->Get("TSsbs");
 	
-	TString outrootfilename = Form("parsed_%s", rootfile_name.c_str());
+	TString outrootfilename = Form("%s", rootfile_name.c_str());
 
 	TFile* outputrootfile = new TFile(Form("%s/%s", output_dir_path.Data(), outrootfilename.Data()),"RECREATE");
 
