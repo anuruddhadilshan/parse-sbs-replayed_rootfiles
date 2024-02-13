@@ -85,7 +85,7 @@ int parse_gmn_rootfiles(const char* configfilename, int splitwise = 1) //Enter s
 	else //Make a single parsed ROOT file for all the runs with the given run parameters.
 	{
 		std::cout << "\nMaking a single parsed ROOT file...\n";
-		TString outrootfilename = Form("parsed_gmn_SBS%i_targ%s_sbsmagscale%i.root", kin_num, target.Data(), sbsfieldscale);
+		TString outrootfilename = Form("parsed_sbs%i_sbs%ip_%s.root", kin_num, sbsfieldscale, target.Data());
 		makeTheParsedROOTfile(runnum_vec, input_ROOTfile_dirpath, output_dir_path, outrootfilename, globalcut);
 	}		
 
