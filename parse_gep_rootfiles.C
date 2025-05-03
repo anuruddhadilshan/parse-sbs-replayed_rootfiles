@@ -4,6 +4,7 @@
 #include <string> 
 #include <cstring>
 #include <dirent.h>
+#include <ROOT/TThreadExecutor.hxx>
 #include "TStopwatch.h"
 
 #include "read_parsescript_config.h"
@@ -16,6 +17,7 @@ void makeTheParsedROOTfile(std::vector<int> runnum_vec, TString input_ROOTfile_d
 
 int parse_gep_rootfiles(const char* configfilename, const bool useCfgFileRunList = true, const int splitwise = 1) //Enter splitwise = 1 for split-wise ROOT file parsing and any other number to make a single parsed ROOT file.
 {
+	ROOT::TThreadExecutor pool(5);  // Use 5 threads
 
 	auto total_time_start = std::chrono::high_resolution_clock::now();
 	TStopwatch *StopWatch = new TStopwatch();
